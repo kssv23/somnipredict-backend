@@ -19,16 +19,6 @@ try:
     scaler = joblib.load('standard_scaler.pkl')
     label_encoder = joblib.load('label_encoder.pkl')
     logger.info("Models loaded successfully")
-    
-    # Check if sleep quality regressor exists
-    try:
-        sleep_quality_regressor = joblib.load('sleep_quality_regressor.pkl')
-        has_regressor = True
-        logger.info("Sleep quality regressor loaded")
-    except:
-        has_regressor = False
-        logger.info("No sleep quality regressor found")
-        
 except Exception as e:
     logger.error(f"Error loading models: {str(e)}")
     raise e
@@ -52,18 +42,16 @@ FIELD_MAPPING = {
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Get and validate data
         frontend_data = request.get_json()
         if not frontend_data:
             logger.error("No data received")
             return jsonify({"error": "No data received"}), 400
-            
+
         logger.info(f"Received data: {frontend_data}")
-        
-        # Convert frontend data to model input format
+
         model_input = []
         missing_fields = []
-        
+
         for frontend_key, model_key in FIELD_MAPPING.items():
             if frontend_key not in frontend_data:
                 missing_fields.append(frontend_key)
@@ -74,41 +62,31 @@ def predict():
             except (ValueError, TypeError):
                 logger.error(f"Invalid value for {frontend_key}: {frontend_data[frontend_key]}")
                 return jsonify({"error": f"Invalid value for {frontend_key}"}), 400
-        
+
         if missing_fields:
             logger.error(f"Missing fields: {missing_fields}")
             return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
-        
-        # Convert to numpy array and reshape
+
         input_array = np.array(model_input).reshape(1, -1)
         logger.info(f"Model input array: {input_array}")
-        
-        # Scale input features
+
         scaled_input = scaler.transform(input_array)
-        
-        # Make predictions
+
         rf_pred = rf_model.predict(scaled_input)[0]
         mlp_pred = mlp_model.predict(scaled_input)[0]
-        
-        # Decode predictions
+
         rf_label = label_encoder.inverse_transform([rf_pred])[0]
         mlp_label = label_encoder.inverse_transform([mlp_pred])[0]
-        
-        # Prepare response
+
         response = {
             "RandomForest": rf_label,
             "NeuralNetwork": mlp_label,
             "status": "success"
         }
-        
-        # Add sleep quality prediction if available
-        if has_regressor:
-            predicted_quality = sleep_quality_regressor.predict(scaled_input)[0]
-            response["PredictedQuality"] = float(predicted_quality)
-        
+
         logger.info(f"Returning response: {response}")
         return jsonify(response)
-    
+
     except Exception as e:
         logger.error(f"Prediction error: {str(e)}", exc_info=True)
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
