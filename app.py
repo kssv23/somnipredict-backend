@@ -1,21 +1,15 @@
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
 import numpy as np
 import logging
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
-import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load models and preprocessing objects
 try:
     rf_model = joblib.load('random_forest_model.pkl')
     mlp_model = joblib.load('mlp_classifier.pkl')
@@ -26,7 +20,6 @@ except Exception as e:
     logger.error(f"Error loading models: {str(e)}")
     raise e
 
-# Mapping frontend keys to model input fields
 FIELD_MAPPING = {
     "Age": "Age",
     "Sleep Start Time (0-23)": "Sleep Start Time",
@@ -95,33 +88,19 @@ def predict():
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/plot')
-def plot():
-    # Generate example data
-    df = pd.DataFrame({
-        'sleep_hours': [6, 7, 8, 5, 9],
-        'productivity': [5, 7, 9, 4, 8]
-    })
-
-    sns.set(style='whitegrid')
-    sns.scatterplot(x='sleep_hours', y='productivity', data=df)
-    plt.title("Sleep Hours vs Productivity")
-    plt.xlabel("Sleep Hours")
-    plt.ylabel("Productivity (1-10)")
-
-    if not os.path.exists('static'):
-        os.mkdir('static')
-    plt.savefig('static/sleep_plot.png')
-    plt.close()
-
-    return send_file('static/sleep_plot.png', mimetype='image/png')
-
-@app.route('/plotview')
-def plotview():
-    return render_template('plotview.html')
+def home():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Sleep Classifier</title>
+    </head>
+    <body>
+        <h1>Sleep Classifier Backend</h1>
+        <p>The classifier backend is running. Use the frontend interface to interact with the service.</p>
+    </body>
+    </html>
+    """
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
